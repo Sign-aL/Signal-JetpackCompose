@@ -1,9 +1,10 @@
 # Signal - ASL Translation Device
 
 ## Objective
-Create a polished Android app that simulates a sign language glove which:
-- Interprets one-handed ASL finger spelling
-- Uses 5 flex sensors and a gy-91 mpu9050 module (simulated with realistic values)
+Create a polished Android app that connects to a sign language glove which:
+- Connects to an ESP32 glove device via Bluetooth Low Energy (BLE)
+- Interprets one-handed ASL finger spelling from actual device readings
+- Uses 5 flex sensors and a gy-91 mpu9050 module
 - Integrates with Google's Vertex AI Gemini for processing translations
 - Incorporates Gemma AI for health information summarization
 - Translates sign language into full sentences
@@ -13,14 +14,14 @@ Create a polished Android app that simulates a sign language glove which:
 
 ## Project Structure
 - UI Components
-  - MainActivity: Navigation host for the app
+  - MainActivity: Navigation host for the app with BLE permissions handling
   - IntroScreen: Animated splash screen showing app name and logo
   - HomeScreen: Display interpreted signs and AI translations with speech output
-  - SensorVisualizationScreen: Visual representation of simulated sensor data with realistic human-like movements
+  - SensorVisualizationScreen: Visual representation of real sensor data from BLE device
   - SettingsScreen: Configure app settings, API key and accessibility options
   - ProfileScreen: Input and store personal health information for healthcare scenarios
 - Core Features
-  - Sensor Data Simulation: Generate realistic sensor data mimicking flex sensors and gyroscope with natural shakiness
+  - BLE Connection: Connect to ESP32 device with proper service/characteristic UUIDs
   - ASL Interpretation: Map sensor data to ASL letters
   - Gemini AI Integration: Send interpreted signs to Gemini API for translation
   - Gemma AI Integration: Process health information for emergency scenarios
@@ -28,12 +29,12 @@ Create a polished Android app that simulates a sign language glove which:
   - Bottom Navigation: Easy navigation between screens
   - Preferences Storage: Save user settings between sessions
   - Shared State Management: Maintain sign capture state between different screens
-  - Continuous Processing: Ensure sign capture continues when navigating between tabs
   - Health Profile: Store and display critical health information during healthcare interactions
 
 ## Technologies
 - Android Jetpack Compose for UI
 - Kotlin for app development
+- Bluetooth Low Energy for device communication
 - Vertex AI Gemini API for language translations
 - Gemma AI for health information processing
 - Android Text-to-Speech for voice output
@@ -45,7 +46,8 @@ Create a polished Android app that simulates a sign language glove which:
 
 ## Current Status
 - Basic app structure with Jetpack Compose ✅
-- Realistic sensor data simulation module with natural shakiness ✅
+- BLE connection to ESP32 device ✅
+- Realistic sensor visualization from BLE data ✅
 - ASL interpretation logic ✅
 - Gemini AI integration with real API support ✅
 - Gemma AI integration for health information processing ✅
@@ -66,61 +68,51 @@ Create a polished Android app that simulates a sign language glove which:
 ## Implementation Details
 1. IntroScreen: Polished animated splash screen showing the app name "Signal" with scaling icon and "Smart Sign Language Translation Device" subtitle
 2. HomeScreen: Displays detected ASL signs with visual feedback, AI translations, and text-to-speech output
-3. SensorVisualizationScreen: Shows realistic simulated flex sensor data with enhanced visual feedback, dynamic colors, and real-time gyroscope readings
+3. SensorVisualizationScreen: Shows real-time BLE sensor data with enhanced visual feedback and dynamic colors
 4. SettingsScreen: Configures app settings including Gemini API key and accessibility options
 5. ProfileScreen: Allows users to input and save personal health information for healthcare scenarios
-6. GeminiAiViewModel: Handles communication with Gemini AI for natural language translations with fallback to simulated responses
-7. GemmaAiViewModel: Processes health data for summaries and emergency situation responses
-8. TextToSpeechManager: Manages text-to-speech functionality for accessibility
-9. SignCaptureViewModel: Handles shared state for sign capture that persists between screens with continuous processing across navigation
-10. Preferences system: Persists user settings and health profile data between app sessions
-11. Context-aware health information display: Shows relevant health information when healthcare-related keywords are detected in translated content
+6. BleConnectionManager: Manages BLE connection to ESP32 device with specific service UUID 6E400001-B5A3-F393-E0A9-E50E24DCCA9E and characteristic TX UUID 6E400003-B5A3-F393-E0A9-E50E24DCCA9E for notifications
+7. SignCaptureViewModel: Handles BLE data processing and letter detection from the connected device
+8. GeminiAiViewModel: Handles communication with Gemini AI for natural language translations with fallback to simulated responses
+9. GemmaAiViewModel: Processes health data for summaries and emergency situation responses
+10. TextToSpeechManager: Manages text-to-speech functionality for accessibility
 
-## AI Integration Features
-- Gemini AI: Powers the natural language translation of ASL signs, transforming detected finger spelling into conversational sentences
-- Gemma AI: Provides focused health information processing:
-  - Generates emergency summaries based on health profiles and detected conditions
-  - Creates personalized health information summaries from user profiles
-  - Highlights critical medical information like allergies and conditions
-  - Adapts responses based on emergency situations (pain, breathing difficulties, etc.)
+## BLE Connection Features
+- Device scanning with service UUID filtering
+- Connection to ESP32 BLE device
+- Subscription to notifications from TX characteristic
+- Real-time sensor data updates
+- Proper permission handling for Android BLE operations
+- Smooth connection establishment and monitoring
+- Automatic letter detection from BLE notifications
 
-## General Features
-- Realistic visualization of simulated sensor data with natural movements and shakiness
-- Animated sign detection with visual feedback
-- Real Gemini AI integration for sign language translation (with fallback)
-- Text-to-Speech for audio output of translations (toggleable)
-- Modern Material Design 3 UI with gradient backgrounds and cards
-- Intro animation splash screen
-- Persistent user preferences
-- Continuous sign capture across app navigation
-- Synchronized flex sensor readings with letter detection
-- Hand visualization with micro-tremors and natural motion
-- Uninterrupted capture process when switching tabs
-- Dynamic sensor visualization with color-coded feedback and reactive animations
-- Continuous updating of flex sensor and gyro values even when not actively capturing
-- Profile screen for entering personal health information
-- Context-aware health profile display in emergency healthcare situations
-- Keyword detection to identify medical context in translations
+## ESP32 Device Configuration
+The ESP32 device is configured with:
+- Service UUID: 6E400001-B5A3-F393-E0A9-E50E24DCCA9E
+- TX Characteristic: 6E400003-B5A3-F393-E0A9-E50E24DCCA9E (with NOTIFY property)
+- Device name: "FakeGloveBLE"
+- Sends letter notifications based on sensor readings
+- When paired with the app, provides real-time ASL finger spelling recognition
 
 ## Future Improvements
-- Connect to actual hardware when available
-- Implement real-time sign language detection
+- Improve BLE reconnection handling when connection is lost
+- Implement calibration for different users' hand sizes
 - Add more complex sign language interpretation beyond finger spelling
 - Expand language options for text-to-speech
 - Improve accuracy of AI translations
-- Add vibration feedback when signs are detected 
+- Add vibration feedback when signs are detected
 - Add ability to calibrate sensor simulation for different users
 - Add ability to share health information with healthcare providers
 - Implement data encryption for sensitive health information
 - Add health ID QR code for quick scanning in emergencies
 
 ## Recent Changes
-- Fixed issue where flex sensor and gyroscope values appeared static by ensuring that sensor simulation always produces dynamic values
-- Removed debugging mode that could cause sensor values to appear fixed
-- Enhanced sensor visualization to provide more realistic data representation with natural variations
-- Added Profile screen to store personal and health information
-- Implemented context-aware health information display on HomeScreen that shows relevant health data when healthcare-related keywords are detected in translations
-- Added automatic keyword detection for medical terms in translated content
-- Renamed "Medical Profile" to "Profile" and updated terminology throughout the app
-- Integrated Gemma AI for health information processing and emergency response generation
-- Added support for detecting specific medical conditions and generating appropriate emergency responses 
+- Added BLE connectivity to connect to ESP32 device
+- Implemented proper BLE permission handling in MainActivity
+- Created BleConnectionManager to handle BLE scan, connect, and data reception
+- Updated SignCaptureViewModel to process real BLE data
+- Enhanced SensorVisualizationScreen UI to display actual sensor values
+- Updated sensor visualization to show flex, accelerometer, and gyroscope data from device
+- Added reconnection handling when connection is lost
+- Modified AndroidManifest.xml to include all required BLE permissions
+- Improved hand visualization to reflect real sensor data 

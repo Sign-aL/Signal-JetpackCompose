@@ -56,68 +56,16 @@ import kotlin.random.Random
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SensorVisualizationScreen(signCaptureViewModel: SignCaptureViewModel) {
-    // Simulated sensor data with always dynamic values
-    var flexValues by remember { mutableStateOf(List(5) { 0.5f }) }
-    var gyroValues by remember { mutableStateOf(Triple(12.5f, 8.3f, 5.7f)) } 
-    var accelValues by remember { mutableStateOf(Triple(0.7f, 0.4f, 9.8f)) }
-    
-    // Access shared capture state
+    // Access shared state
     val isCapturing = signCaptureViewModel.isCapturing.value
     val currentLetter = signCaptureViewModel.currentLetter.value
     val detectedLetters = signCaptureViewModel.detectedLetters.value
     val isDeviceConnected = signCaptureViewModel.isDeviceConnected.value
     
-    // Debug logs for gyro values
-    val lastGyroValues = remember { mutableStateOf(gyroValues) }
-    DisposableEffect(gyroValues) {
-        if (gyroValues != lastGyroValues.value) {
-            println("GyroValues changed: ${gyroValues.first}, ${gyroValues.second}, ${gyroValues.third}")
-            lastGyroValues.value = gyroValues
-        }
-        onDispose { }
-    }
-    
-    // Continuous sensor data simulation that always runs regardless of capture state
-    LaunchedEffect(Unit) {
-        var time = System.currentTimeMillis() / 1000f
-        
-        while (true) {
-            time = System.currentTimeMillis() / 1000f
-            
-            // Always update flex values with dynamic changes when not capturing
-            if (!isCapturing || currentLetter.isEmpty()) {
-                // Generate realistic-looking sensor data with natural drift and micro-movements
-                flexValues = List(5) { i ->
-                    val baseValue = sin((time + i * 0.5f) * 1.5f) * 0.4f + 0.5f
-                    val randomJitter = (Random.nextFloat() - 0.5f) * 0.08f
-                    val microJitter = sin(System.currentTimeMillis() / 50f + i * 10) * 0.02f
-                    
-                    // Combine base value with jitter components
-                    val value = baseValue + randomJitter + microJitter
-                    value.coerceIn(0.1f, 0.9f)
-                }
-            } else {
-                // Use flex values from the signCaptureViewModel when capturing
-                flexValues = signCaptureViewModel.currentFlexValues.value
-            }
-            
-            // ALWAYS update gyro with dynamic values
-            gyroValues = Triple(
-                5.5f * sin(time * 0.3f) + 2.8f * sin(time * 5f) + (Random.nextFloat() - 0.5f) * 1.5f,
-                4.2f * sin(time * 0.2f + 1f) + 1.6f * sin(time * 4.5f) + (Random.nextFloat() - 0.5f) * 1.2f,
-                3.0f * sin(time * 0.1f + 2f) + 1.5f * sin(time * 4f) + (Random.nextFloat() - 0.5f) * 1.4f
-            )
-            
-            // ALWAYS update accelerometer with dynamic values
-            accelValues = Triple(
-                0.2f + sin(time * 2f) * 0.3f + (Random.nextFloat() - 0.5f) * 0.4f,
-                0.1f + sin(time * 1.7f) * 0.2f + (Random.nextFloat() - 0.5f) * 0.5f,
-                9.8f + sin(time * 3f) * 0.15f + (Random.nextFloat() - 0.5f) * 0.3f
-            )
-            
-            delay(20)  // Update at 50Hz for more frequent updates and visible shakiness
-        }
-    }
+    // Use the flex values directly from SignCaptureViewModel for real-time updates
+    val flexValues = signCaptureViewModel.currentFlexValues.value
+    val gyroValues = signCaptureViewModel.gyroValues.value
+    val accelValues = signCaptureViewModel.accelValues.value
     
     Scaffold(
         topBar = {
@@ -198,222 +146,399 @@ fun SensorVisualizationScreen(signCaptureViewModel: SignCaptureViewModel) {
                             MaterialTheme.colorScheme.surfaceVariant
                         }
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
                         Text(
-                            text = if (isCapturing) "Capturing Sign: $currentLetter" else "Captured Signs: $detectedLetters",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            text = if (isCapturing) "Capturing Signs..." else "Capture Complete",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
                         )
+                        
                         Spacer(modifier = Modifier.height(8.dp))
                         
-                        // Start capture button
-                        Button(
-                            onClick = { signCaptureViewModel.startCapturing() },
-                            enabled = !isCapturing && isDeviceConnected,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                        if (detectedLetters.isNotEmpty()) {
+                            Text(
+                                text = "Detected: $detectedLetters",
+                                style = MaterialTheme.typography.bodyMedium
                             )
-                        ) {
-                            Icon(
-                                Icons.Default.RecordVoiceOver, 
-                                contentDescription = "Capture", 
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Start Capture")
+                        }
+                        
+                        if (isCapturing) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Button(
+                                onClick = { signCaptureViewModel.stopCapturing() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            ) {
+                                Text("Stop Capture")
+                            }
+                        } else if (detectedLetters.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Button(
+                                onClick = { signCaptureViewModel.startCapturing() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            ) {
+                                Text("Start New Capture")
+                            }
                         }
                     }
                 }
             }
             
-            // Flex Sensors Card
+            // Live Sensor Data Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = "Live Sensor Data",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                    
+                    if (!isDeviceConnected) {
                         Text(
-                            text = "Flex Sensors",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
+                            text = "Connect device to see live sensor data",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
                         )
-                        
-                        if (isCapturing && currentLetter.isNotEmpty()) {
-                            Text(
-                                text = "Showing values for: $currentLetter",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    flexValues.forEachIndexed { index, value ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
+                    // Flex Sensors Visualization
+                    Text(
+                        text = "Flex Sensors",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Display flex sensors as vertical bars with values
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        flexValues.forEachIndexed { index, value ->
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // Dynamic color based on sensor value
+                                val flexColor = when {
+                                    value < 0.3f -> Color(0xFF4CAF50) // Green for low flex
+                                    value < 0.7f -> Color(0xFFFFA000) // Amber for medium flex
+                                    else -> Color(0xFFF44336) // Red for high flex
+                                }
+                                
+                                // Flex value as text
+                                Text(
+                                    text = String.format("%.2f", value),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                
+                                Spacer(modifier = Modifier.height(4.dp))
+                                
+                                // Vertical bar
+                                Box(
+                                    modifier = Modifier
+                                        .width(20.dp)
+                                        .height(100.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.surface)
+                                        .border(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.outline,
+                                            shape = RoundedCornerShape(4.dp)
+                                        )
+                                ) {
+                                    // Fill based on flex value
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .fillMaxWidth()
+                                            .height((value * 100).dp)
+                                            .background(flexColor)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(4.dp))
+                                
+                                // Finger label
+                                Text(
+                                    text = when (index) {
+                                        0 -> "Thumb"
+                                        1 -> "Index"
+                                        2 -> "Middle"
+                                        3 -> "Ring"
+                                        else -> "Pinky"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    // IMU Sensor Data - Accelerometer and Gyroscope
+                    Text(
+                        text = "IMU Sensors",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Accelerometer
+                        Column(
+                            modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                "Finger ${index + 1}",
-                                modifier = Modifier.width(60.dp)
+                                text = "Accelerometer (g)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Text(
+                                text = "X: ${String.format("%.2f", accelValues.first)}",
+                                style = MaterialTheme.typography.bodyMedium
                             )
                             
                             LinearProgressIndicator(
-                                progress = value,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(16.dp) // Increased height
-                                    .clip(RoundedCornerShape(8.dp)),
-                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                                color = if (isCapturing) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    // Dynamic color based on value for better visibility
-                                    Color(
-                                        red = 0.3f + value * 0.5f,
-                                        green = 0.2f + (1f - value) * 0.5f,
-                                        blue = 0.7f,
-                                        alpha = 0.8f
-                                    )
-                                },
+                                progress = ((accelValues.first + 3f) / 6f).coerceIn(0f, 1f),
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFF2196F3),
+                                trackColor = MaterialTheme.colorScheme.surface,
                                 strokeCap = StrokeCap.Round
                             )
                             
-                            // Value display with more prominence
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
                             Text(
-                                text = "${(value * 1023).toInt()}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier
-                                    .width(50.dp)
-                                    .padding(start = 8.dp)
+                                text = "Y: ${String.format("%.2f", accelValues.second)}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            
+                            LinearProgressIndicator(
+                                progress = ((accelValues.second + 3f) / 6f).coerceIn(0f, 1f),
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFF4CAF50),
+                                trackColor = MaterialTheme.colorScheme.surface,
+                                strokeCap = StrokeCap.Round
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Text(
+                                text = "Z: ${String.format("%.2f", accelValues.third)}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            
+                            LinearProgressIndicator(
+                                progress = (accelValues.third / 20f).coerceIn(0f, 1f),
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFFFF9800),
+                                trackColor = MaterialTheme.colorScheme.surface,
+                                strokeCap = StrokeCap.Round
                             )
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Spacer(modifier = Modifier.width(16.dp))
+                        
+                        // Gyroscope
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "Gyroscope (°/s)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Text(
+                                text = "X: ${String.format("%.2f", gyroValues.first)}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            
+                            LinearProgressIndicator(
+                                progress = ((gyroValues.first + 20f) / 40f).coerceIn(0f, 1f),
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFFF44336),
+                                trackColor = MaterialTheme.colorScheme.surface,
+                                strokeCap = StrokeCap.Round
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Text(
+                                text = "Y: ${String.format("%.2f", gyroValues.second)}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            
+                            LinearProgressIndicator(
+                                progress = ((gyroValues.second + 20f) / 40f).coerceIn(0f, 1f),
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFF9C27B0),
+                                trackColor = MaterialTheme.colorScheme.surface,
+                                strokeCap = StrokeCap.Round
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Text(
+                                text = "Z: ${String.format("%.2f", gyroValues.third)}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            
+                            LinearProgressIndicator(
+                                progress = ((gyroValues.third + 20f) / 40f).coerceIn(0f, 1f),
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFF009688),
+                                trackColor = MaterialTheme.colorScheme.surface,
+                                strokeCap = StrokeCap.Round
+                            )
+                        }
                     }
                 }
             }
             
-            // Gyroscope and Accelerometer Card
+            // Hand Visualization
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
                     Text(
-                        text = "MPU9050 Module",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        text = "Hand Visualization",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Gyroscope header with active indicator
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "Gyroscope",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        
-                        Spacer(modifier = Modifier.width(8.dp))
-                        
-                        // Animated indicator
-                        Box(
-                            modifier = Modifier
-                                .size(12.dp)
-                                .clip(CircleShape)
-                                .background(Color.Green)
-                        )
-                        
-                        // Display raw values for debugging
-                        Spacer(modifier = Modifier.weight(1f))
-                        Text(
-                            text = "(${gyroValues.first.toInt()}, ${gyroValues.second.toInt()}, ${gyroValues.third.toInt()})",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    // New enhanced display for gyroscope values
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        EnhancedSensorValue("X", gyroValues.first, "°/s", MaterialTheme.colorScheme.primary)
-                        EnhancedSensorValue("Y", gyroValues.second, "°/s", MaterialTheme.colorScheme.secondary)
-                        EnhancedSensorValue("Z", gyroValues.third, "°/s", MaterialTheme.colorScheme.tertiary)
-                    }
-                    
-                    Spacer(modifier = Modifier.height(20.dp))
-                    
-                    // Accelerometer header with active indicator
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "Accelerometer",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        
-                        Spacer(modifier = Modifier.width(8.dp))
-                        
-                        // Animated indicator
-                        Box(
-                            modifier = Modifier
-                                .size(12.dp)
-                                .clip(CircleShape)
-                                .background(Color.Green)
-                        )
-                        
-                        // Display raw values for debugging
-                        Spacer(modifier = Modifier.weight(1f))
-                        Text(
-                            text = "(${accelValues.first.toInt()}, ${accelValues.second.toInt()}, ${accelValues.third.toInt()})",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    // New enhanced display for accelerometer values
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        EnhancedSensorValue("X", accelValues.first, "m/s²", MaterialTheme.colorScheme.primary)
-                        EnhancedSensorValue("Y", accelValues.second, "m/s²", MaterialTheme.colorScheme.secondary)
-                        EnhancedSensorValue("Z", accelValues.third, "m/s²", MaterialTheme.colorScheme.tertiary)
-                    }
-                    
-                    Spacer(modifier = Modifier.height(20.dp))
-                    
-                    // 3D visualization
-                    Box(
+                    // Hand drawing canvas
+                    HandVisualization(
+                        flexValues = flexValues,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(180.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center
+                            .height(300.dp)
+                    )
+                    
+                    if (currentLetter.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text(
+                            text = "Current Gesture: $currentLetter",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+            
+            // Capture Controls Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Capture Controls",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        HandVisualization(flexValues, gyroValues)
+                        // Connect/Disconnect Button
+                        Button(
+                            onClick = { signCaptureViewModel.toggleDeviceConnection() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isDeviceConnected) {
+                                    MaterialTheme.colorScheme.errorContainer
+                                } else {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                },
+                                contentColor = if (isDeviceConnected) {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                }
+                            )
+                        ) {
+                            Text(if (isDeviceConnected) "Disconnect" else "Connect")
+                        }
+                        
+                        // Start/Stop Capture Button
+                        Button(
+                            onClick = {
+                                if (isCapturing) {
+                                    signCaptureViewModel.stopCapturing()
+                                } else {
+                                    signCaptureViewModel.startCapturing()
+                                }
+                            },
+                            enabled = isDeviceConnected,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isCapturing) {
+                                    MaterialTheme.colorScheme.errorContainer
+                                } else {
+                                    MaterialTheme.colorScheme.tertiaryContainer
+                                },
+                                contentColor = if (isCapturing) {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onTertiaryContainer
+                                },
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        ) {
+                            Text(if (isCapturing) "Stop Capture" else "Start Capture")
+                        }
                     }
                 }
             }
@@ -502,47 +627,35 @@ fun SensorValueDisplay(axis: String, value: Float, unit: String) {
 }
 
 @Composable
-fun HandVisualization(flexValues: List<Float>, gyroValues: Triple<Float, Float, Float>) {
-    Canvas(modifier = Modifier.size(200.dp)) {
+fun HandVisualization(flexValues: List<Float>, modifier: Modifier) {
+    Canvas(modifier = modifier) {
         val center = Offset(size.width / 2, size.height / 2)
         val handLength = size.width * 0.4f
-        
-        // Use gyroscope values to slightly tilt the whole hand (scale down the values)
-        val handTiltX = gyroValues.first / 100f
-        val handTiltY = gyroValues.second / 100f
         
         // Draw palm with slight displacement based on gyro values
         drawCircle(
             color = Color.Gray.copy(alpha = 0.5f),
             radius = size.width * 0.15f,
-            center = center.copy(
-                x = center.x + handTiltX * size.width,
-                y = center.y + handTiltY * size.height
-            )
+            center = center
         )
         
         // Draw fingers with more realistic movement
         for (i in flexValues.indices) {
             // Add slight angle variations based on gyro for natural hand position
-            val angle = -Math.PI / 2 + (i - 2) * Math.PI / 8 + handTiltX * 0.3 + (if (i % 2 == 0) handTiltY * 0.2 else -handTiltY * 0.2)
+            val angle = -Math.PI / 2 + (i - 2) * Math.PI / 8
             val fingerLength = handLength * (1f - flexValues[i] * 0.7f)
             
             // Add micro-tremors to finger positions
             val tremor = sin(System.currentTimeMillis() / (80f + i * 20)) * 2f
             
             val fingerEnd = Offset(
-                center.x + (fingerLength * kotlin.math.cos(angle)).toFloat() + handTiltX * size.width + tremor,
-                center.y + (fingerLength * kotlin.math.sin(angle)).toFloat() + handTiltY * size.height + tremor * 0.7f
-            )
-            
-            val palmCenter = center.copy(
-                x = center.x + handTiltX * size.width,
-                y = center.y + handTiltY * size.height
+                center.x + (fingerLength * kotlin.math.cos(angle)).toFloat() + tremor,
+                center.y + (fingerLength * kotlin.math.sin(angle)).toFloat() + tremor * 0.7f
             )
             
             drawLine(
                 color = Color.Red,
-                start = palmCenter,
+                start = center,
                 end = fingerEnd,
                 strokeWidth = 8f,
                 cap = StrokeCap.Round
@@ -554,8 +667,8 @@ fun HandVisualization(flexValues: List<Float>, gyroValues: Triple<Float, Float, 
                 color = Color.Red.copy(alpha = 0.7f),
                 radius = 6f,
                 center = Offset(
-                    palmCenter.x + (fingerLength * 0.5f * kotlin.math.cos(angle)).toFloat() + jointTremor,
-                    palmCenter.y + (fingerLength * 0.5f * kotlin.math.sin(angle)).toFloat() + jointTremor * 0.7f
+                    center.x + (fingerLength * 0.5f * kotlin.math.cos(angle)).toFloat() + jointTremor,
+                    center.y + (fingerLength * 0.5f * kotlin.math.sin(angle)).toFloat() + jointTremor * 0.7f
                 )
             )
             
