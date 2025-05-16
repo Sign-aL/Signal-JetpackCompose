@@ -1,7 +1,7 @@
-# ASL Glove Demo App
+# Signal
 
 ## Overview
-The ASL Glove Demo App is a simulation of a sign language interpretation system that uses a glove with sensors to detect American Sign Language (ASL) finger spelling. This demo app showcases what the final product would look like once the hardware is ready.
+The Signal App is a sign language interpretation system that uses a glove with sensors to detect American Sign Language (ASL) finger spelling. This demo app showcases what the final product would look like once the hardware is ready.
 
 ## Features
 - **ASL Finger Spelling Detection**: Simulates the detection of one-handed ASL finger spelling using fake sensor data
@@ -11,12 +11,12 @@ The ASL Glove Demo App is a simulation of a sign language interpretation system 
 
 ## Technology Stack
 - **Android Development**: Kotlin + Jetpack Compose
-- **AI Integration**: Google Vertex AI Gemini API
+- **AI Integration**: Google Vertex AI Gemini API + Gemma
 - **UI Framework**: Material Design 3
 - **Architecture**: MVVM (Model-View-ViewModel)
 
 ## Hardware Concept
-The actual hardware (not included in this demo) would consist of:
+The actual hardware would consist of:
 - 5 flex sensors (one for each finger)
 - GY-91 MPU9050 module for orientation detection
 - Microcontroller for data processing
@@ -39,4 +39,4 @@ This project is being developed as part of the Google Solution Challenge, focusi
 - Community features for sharing and improving sign language detection
 
 ## Credits
-Developed by [Your Name/Team] 
+Developed by [Team Signal] 
